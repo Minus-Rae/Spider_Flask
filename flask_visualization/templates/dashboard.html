@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📊 岗位数据分析可视化大屏</title>
+    <!-- ECharts CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            padding: 20px;
+            margin-bottom: 20px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+        }
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+        .header p {
+            opacity: 0.8;
+            font-size: 14px;
+        }
+        
+        /* 图表网格布局 */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+        }
+        .chart-card {
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+        .chart-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .chart-container {
+            width: 100%;
+            height: 350px;  /* 稍微调高，因为少了一个图表 */
+        }
+        
+        /* 控制按钮区域 */
+        .control-panel {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .btn {
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: opacity 0.3s;
+        }
+        .btn:hover {
+            opacity: 0.9;
+        }
+        
+        /* 响应式适配 */
+        @media (max-width: 768px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+            .header h1 {
+                font-size: 22px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 标题栏 -->
+    <div class="header">
+        <h1>📊 岗位数据分析可视化平台</h1>
+        <p>Flask + ECharts 科研原型 | 多维度数据洞察</p>
+    </div>
+
+    <!-- 图表区域（3个核心图表） -->
+    <div class="charts-grid">
+        <!-- 图表1：薪资分布柱状图 -->
+        <div class="chart-card">
+            <div class="chart-title">📊 岗位薪资分布</div>
+            <div id="salaryChart" class="chart-container"></div>
+        </div>
+
+        <!-- 图表2：城市分布饼图 -->
+        <div class="chart-card">
+            <div class="chart-title">🌍 城市岗位占比</div>
+            <div id="cityChart" class="chart-container"></div>
+        </div>
+
+        <!-- 图表3：技能词云 -->
+        <div class="chart-card">
+            <div class="chart-title">🔑 热门技能词云</div>
+            <div id="skillChart" class="chart-container"></div>
+        </div>
+    </div>
+
+    <!-- 控制按钮 -->
+    <div class="control-panel">
+        <button class="btn" onclick="refreshData()">🔄 刷新数据</button>
+        <button class="btn" onclick="exportData()">💾 导出数据</button>
+    </div>
+
+    <script>
+        // ==================== 初始化图表 ====================
+        const salaryChart = echarts.init(document.getElementById('salaryChart'));
+        const cityChart = echarts.init(document.getElementById('cityChart'));
+        const skillChart = echarts.init(document.getElementById('skillChart'));
+
+        // ==================== 加载薪资数据（柱状图） ====================
+        async function loadSalaryData() {
+            try {
+                const res = await fetch('/api/salary_data');
+                const result = await res.json();
+                if (result.success) {
+                    const { categories, values, unit } = result.data;
+                    salaryChart.setOption({
+                        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                        grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+                        xAxis: {
+                            type: 'category',
+                            data: categories,
+                            axisLabel: { color: '#fff', rotate: 30 }
+                        },
+                        yAxis: {
+                            type: 'value',
+                            name: unit,
+                            axisLabel: { color: '#fff' },
+                            splitLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } }
+                        },
+                        series: [{
+                            name: '岗位数量',
+                            type: 'bar',
+                            data: values,
+                            itemStyle: {
+                                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                    { offset: 0, color: '#83bff6' },
+                                    { offset: 0.5, color: '#188df0' },
+                                    { offset: 1, color: '#1858f0' }
+                                ])
+                            },
+                            label: { show: true, position: 'top', color: '#fff' },
+                            barWidth: '50%'
+                        }]
+                    });
+                }
+            } catch (err) {
+                console.error('加载薪资数据失败:', err);
+            }
+        }
+
+        // ==================== 加载城市数据（饼图） ====================
+        async function loadCityData() {
+            try {
+                const res = await fetch('/api/city_data');
+                const result = await res.json();
+                if (result.success) {
+                    cityChart.setOption({
+                        tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+                        legend: { orient: 'vertical', right: 10, top: 'center', textStyle: { color: '#fff' } },
+                        series: [{
+                            name: '岗位数量',
+                            type: 'pie',
+                            radius: ['40%', '70%'],
+                            center: ['35%', '50%'],
+                            avoidLabelOverlap: false,
+                            itemStyle: {
+                                borderRadius: 5,
+                                borderColor: '#1a1a2e',
+                                borderWidth: 2
+                            },
+                            label: { show: false },
+                            emphasis: {
+                                label: { show: true, fontSize: 16, fontWeight: 'bold', color: '#fff' }
+                            },
+                            labelLine: { show: false },
+                            data: result.data
+                        }]
+                    });
+                }
+            } catch (err) {
+                console.error('加载城市数据失败:', err);
+            }
+        }
+
+        // ==================== 加载技能词云（用气泡图模拟） ====================
+        async function loadSkillData() {
+            try {
+                const res = await fetch('/api/skill_cloud');
+                const result = await res.json();
+                if (result.success) {
+                    // 词云用气泡图模拟（ECharts词云需要额外插件）
+                    const data = result.data.map(item => ({
+                        name: item.name,
+                        value: item.value,
+                        symbolSize: Math.sqrt(item.value) * 3
+                    }));
+                    skillChart.setOption({
+                        tooltip: { trigger: 'item', formatter: '{b}: {c}' },
+                        series: [{
+                            type: 'graph',
+                            layout: 'force',
+                            data: data,
+                            roam: true,
+                            label: { show: true, position: 'right', formatter: '{b}', color: '#fff' },
+                            force: { repulsion: 150, edgeLength: 80 },
+                            lineStyle: { color: 'source', curveness: 0.3, width: 0 },
+                            itemStyle: {
+                                color: function() {
+                                    return `hsl(${Math.random() * 60 + 180}, 70%, 60%)`;
+                                }
+                            }
+                        }]
+                    });
+                }
+            } catch (err) {
+                console.error('加载技能数据失败:', err);
+            }
+        }
+
+        // ==================== 刷新所有数据 ====================
+        function refreshData() {
+            // 添加加载动画反馈
+            const btn = event.target;
+            const originalText = btn.textContent;
+            btn.textContent = '⏳ 刷新中...';
+            btn.disabled = true;
+            
+            Promise.all([
+                loadSalaryData(),
+                loadCityData(),
+                loadSkillData()
+            ]).finally(() => {
+                btn.textContent = originalText;
+                btn.disabled = false;
+            });
+        }
+
+        // ==================== 导出数据（模拟功能） ====================
+        function exportData() {
+            alert('💡 导出功能演示：\n\n实际项目中可在此接入：\n1. 生成 Excel/PDF 报告\n2. 调用 Flask 接口下载数据\n3. 截图保存当前图表');
+        }
+
+        // ==================== 初始化执行 ====================
+        window.addEventListener('DOMContentLoaded', () => {
+            // 加载所有图表
+            loadSalaryData();
+            loadCityData();
+            loadSkillData();
+            
+            // 窗口大小改变时自适应图表
+            window.addEventListener('resize', () => {
+                salaryChart.resize();
+                cityChart.resize();
+                skillChart.resize();
+            });
+        });
+    </script>
+</body>
+</html>
