@@ -216,34 +216,38 @@ class ZhaopinSeleniumCrawler:
         """
         try:
             # 查找下一页按钮（多种可能的选择器）
-            next_btn = None
-            selectors = [
-                "a[souid='soul_next']",      # 智联常见下一页标识
-                ".soupager a:last-child",    # 分页最后一个
-                "a:contains('下一页')",      # 文本包含（需JS执行）
-            ]
+            next_btn_selector = "a.btn.soupager__btn"
+            # next_btn_xpath = "//a[@class='btn soupager__btn' and text()='下一页']"
+            next_btn = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, next_btn_selector))
+            )
             
-            for selector in selectors:
-                try:
-                    next_btn = self.driver.find_element(By.CSS_SELECTOR, selector)
-                    if next_btn and next_btn.is_displayed() and next_btn.is_enabled():
-                        break
-                except:
-                    continue
-            
-            if next_btn:
-                # 滚动到可见区域再点击（避免元素被遮挡）
-                self.driver.execute_script("arguments[0].scrollIntoView();", next_btn)
-                time.sleep(0.5)
-                next_btn.click()
-                time.sleep(random.uniform(2, 4))  # 等待新页面加载
-                return True
-            else:
-                print("📌 未找到下一页按钮，可能已是最后一页")
+            # ✅ 检查是否禁用（最后一页可能变灰）
+            if "disabled" in next_btn.get_attribute("class") or not next_btn.is_enabled():
+                print("📌 下一页按钮已禁用，已是最后一页")
                 return False
-                
+            
+            # ✅ 滚动到可见区域（避免被固定头部遮挡）
+            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", next_btn)
+            time.sleep(0.5)  # 等待滚动完成
+            
+            # ✅ 点击翻页
+            self.driver.execute_script("arguments[0].click();", next_btn)
+            print("🔄 已点击下一页")
+            
+            # ✅ 等待新页面加载（关键！）
+            # 方法1：等待URL变化
+            WebDriverWait(self.driver, 15).until(
+                lambda d: d.current_url != self.driver.current_url or 
+                EC.presence_of_element_located((By.CSS_SELECTOR, ".jobinfo"))(d)
+            )
+            time.sleep(random.uniform(1, 2))  # 额外缓冲，确保动态内容加载
+            
+            return True
+            
         except Exception as e:
-            print(f"⚠️  翻页失败: {e}")
+            # ✅ 捕获所有异常：找不到按钮/超时/元素消失 = 已是最后一页
+            print(f"📌 翻页结束（未找到下一页按钮）: {type(e).__name__}")
             return False
     
     def crawl_all(self):
