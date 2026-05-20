@@ -1,3 +1,4 @@
+#config_selenium.py
 # -*- coding: utf-8 -*-
 """智联招聘爬虫配置 - Selenium版"""
 
@@ -33,4 +34,4 @@ OUTPUT_CONFIG = {
         "com_type", "com_size", "education", "work_year",
         "job_benefits", "category_path", "crawl_time",
     ]
-}
+} 
