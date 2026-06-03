@@ -116,6 +116,7 @@ def clean_jobs(input_csv: str | Path, output_csv: str | Path | None = None) -> p
             df[col] = df[col].fillna("").astype(str).str.strip()
 
     df = df.drop_duplicates(subset=["job_name", "job_salary", "job_area", "com_name", "category_path"], keep="first").copy()
+    #df = df.drop_duplicates().copy()
 
     # 薪资标准化
     salary_cols = df["job_salary"].apply(parse_salary).apply(pd.Series)
@@ -160,7 +161,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="清洗智联招聘爬虫数据")
     parser.add_argument("--input", default="data/job_data.csv", help="原始 CSV 路径")
-    parser.add_argument("--output", default="data/clean_job_data.csv", help="清洗后 CSV 路径")
+    parser.add_argument("--output", default="data/clean_job_data_1.csv", help="清洗后 CSV 路径")
     args = parser.parse_args()
 
     cleaned = clean_jobs(args.input, args.output)
