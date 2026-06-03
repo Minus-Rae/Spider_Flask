@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>📊 岗位数据分析可视化大屏</title>
-    <!-- ECharts CDN -->
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts-wordcloud@2.1.0/dist/echarts-wordcloud.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -14,6 +14,7 @@
             color: #fff;
             min-height: 100vh;
             padding: 20px;
+            overflow-x: hidden;
         }
         .header {
             text-align: center;
@@ -23,264 +24,361 @@
             border-radius: 12px;
             backdrop-filter: blur(10px);
         }
-        .header h1 {
-            font-size: 28px;
-            margin-bottom: 8px;
-        }
-        .header p {
-            opacity: 0.8;
-            font-size: 14px;
-        }
+        .header h1 { font-size: 28px; margin-bottom: 8px; }
+        .header p { opacity: 0.8; font-size: 14px; }
         
-        /* 图表网格布局 */
+        /* 图表网格布局：修改为在大屏上固定 3 列 */
         .charts-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
             gap: 20px;
         }
         .chart-card {
-            background: rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.05);
             border-radius: 12px;
             padding: 20px;
             backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: transform 0.3s;
         }
-        .chart-title {
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .chart-container {
-            width: 100%;
-            height: 350px;  /* 稍微调高，因为少了一个图表 */
-        }
+        .chart-card:hover { transform: translateY(-5px); }
+        .chart-title { font-size: 18px; font-weight: 600; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
+        .chart-container { width: 100%; height: 320px; }
         
         /* 控制按钮区域 */
         .control-panel {
-            margin-top: 20px;
+            margin-top: 25px;
             padding: 15px;
             background: rgba(255,255,255,0.1);
             border-radius: 12px;
             display: flex;
-            gap: 10px;
+            gap: 15px;
             flex-wrap: wrap;
             justify-content: center;
         }
         .btn {
-            padding: 10px 20px;
+            padding: 10px 25px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border: none;
             border-radius: 8px;
             color: white;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 15px;
+            font-weight: bold;
+            transition: opacity 0.3s, transform 0.2s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .btn:hover { opacity: 0.9; transform: scale(1.05); }
+        .btn-outline { background: transparent; border: 2px solid #667eea; }
+
+        /* ==================== 弹窗样式 ==================== */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
             transition: opacity 0.3s;
         }
-        .btn:hover {
-            opacity: 0.9;
+        .modal-overlay.active { display: flex; opacity: 1; }
+        .modal-content {
+            background: #16213e;
+            width: 90%;
+            max-width: 1000px;
+            border-radius: 16px;
+            padding: 25px;
+            border: 1px solid rgba(255,255,255,0.2);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            transform: translateY(20px);
+            transition: transform 0.3s;
         }
+        .modal-overlay.active .modal-content { transform: translateY(0); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; }
+        .modal-close { background: none; border: none; color: white; font-size: 28px; cursor: pointer; transition: color 0.2s; }
+        .modal-close:hover { color: #ff6b6b; }
+        .modal-controls { margin-bottom: 20px; display: flex; gap: 15px; align-items: center; }
+        select.custom-select {
+            padding: 10px 15px;
+            background: #1a1a2e;
+            color: white;
+            border: 1px solid #667eea;
+            border-radius: 8px;
+            outline: none;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        #dynamicChart { width: 100%; height: 500px; }
         
-        /* 响应式适配 */
-        @media (max-width: 768px) {
-            .charts-grid {
-                grid-template-columns: 1fr;
-            }
-            .header h1 {
-                font-size: 22px;
-            }
-        }
+        @media (max-width: 768px) { .charts-grid { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
-    <!-- 标题栏 -->
     <div class="header">
         <h1>📊 岗位数据分析可视化平台</h1>
-        <p>Flask + ECharts 科研原型 | 多维度数据洞察</p>
+        <p>Flask + ECharts 爬虫数据深度洞察</p>
     </div>
 
-    <!-- 图表区域（3个核心图表） -->
     <div class="charts-grid">
-        <!-- 图表1：薪资分布柱状图 -->
         <div class="chart-card">
             <div class="chart-title">📊 岗位薪资分布</div>
             <div id="salaryChart" class="chart-container"></div>
         </div>
-
-        <!-- 图表2：城市分布饼图 -->
         <div class="chart-card">
             <div class="chart-title">🌍 城市岗位占比</div>
             <div id="cityChart" class="chart-container"></div>
         </div>
-
-        <!-- 图表3：技能词云 -->
         <div class="chart-card">
             <div class="chart-title">🔑 热门技能词云</div>
             <div id="skillChart" class="chart-container"></div>
         </div>
+        <div class="chart-card">
+            <div class="chart-title">🎓 学历要求分布</div>
+            <div id="eduChart" class="chart-container"></div>
+        </div>
+        <div class="chart-card">
+            <div class="chart-title">💼 工作经验要求</div>
+            <div id="workYearChart" class="chart-container"></div>
+        </div>
+        <div class="chart-card">
+            <div class="chart-title">🏢 公司规模与平均薪资</div>
+            <div id="sizeSalaryChart" class="chart-container"></div>
+        </div>
     </div>
 
-    <!-- 控制按钮 -->
     <div class="control-panel">
         <button class="btn" onclick="refreshData()">🔄 刷新数据</button>
-        <button class="btn" onclick="exportData()">💾 导出数据</button>
+        <button class="btn btn-outline" onclick="openModal()">✨ 探索更多维度分析</button>
+    </div>
+
+    <div id="analysisModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📈 深度交叉分析数据洞察</h2>
+                <button class="modal-close" onclick="closeModal()">×</button>
+            </div>
+            <div class="modal-controls">
+                <span>选择分析维度：</span>
+                <select id="dynamicApiSelect" class="custom-select" onchange="loadDynamicChart()">
+                    <option value="/api/position_salary">不同岗位平均薪资排行 (Top 20)</option>
+                    <option value="/api/education_salary">学历要求与薪资门槛关系</option>
+                    <option value="/api/work_year_salary">工作经验要求与薪资溢价</option>
+                    <option value="/api/city_salary">热门城市岗位薪资红黑榜</option>
+                </select>
+            </div>
+            <div id="dynamicChart"></div>
+        </div>
     </div>
 
     <script>
-        // ==================== 初始化图表 ====================
+        // ==================== 初始化主屏图表 ====================
         const salaryChart = echarts.init(document.getElementById('salaryChart'));
         const cityChart = echarts.init(document.getElementById('cityChart'));
         const skillChart = echarts.init(document.getElementById('skillChart'));
+        const eduChart = echarts.init(document.getElementById('eduChart'));
+        const workYearChart = echarts.init(document.getElementById('workYearChart'));
+        const sizeSalaryChart = echarts.init(document.getElementById('sizeSalaryChart')); // 第6个图
 
-        // ==================== 加载薪资数据（柱状图） ====================
+        // ==================== 1-5图表加载逻辑 (保持原有逻辑) ====================
         async function loadSalaryData() {
             try {
-                const res = await fetch('/api/salary_data');
-                const result = await res.json();
+                const res = await fetch('/api/salary_data'); const result = await res.json();
                 if (result.success) {
-                    const { categories, values, unit } = result.data;
                     salaryChart.setOption({
                         tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
                         grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
-                        xAxis: {
-                            type: 'category',
-                            data: categories,
-                            axisLabel: { color: '#fff', rotate: 30 }
-                        },
-                        yAxis: {
-                            type: 'value',
-                            name: unit,
-                            axisLabel: { color: '#fff' },
-                            splitLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } }
-                        },
+                        xAxis: { type: 'category', data: result.data.categories, axisLabel: { color: '#fff', rotate: 30 } },
+                        yAxis: { type: 'value', name: result.data.unit, axisLabel: { color: '#fff' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } } },
                         series: [{
-                            name: '岗位数量',
-                            type: 'bar',
-                            data: values,
-                            itemStyle: {
-                                color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                                    { offset: 0, color: '#83bff6' },
-                                    { offset: 0.5, color: '#188df0' },
-                                    { offset: 1, color: '#1858f0' }
-                                ])
-                            },
-                            label: { show: true, position: 'top', color: '#fff' },
-                            barWidth: '50%'
+                            name: '岗位数量', type: 'bar', data: result.data.values,
+                            itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: '#83bff6' }, { offset: 1, color: '#1858f0' }]) },
+                            label: { show: true, position: 'top', color: '#fff' }, barWidth: '50%'
                         }]
                     });
                 }
-            } catch (err) {
-                console.error('加载薪资数据失败:', err);
-            }
+            } catch (err) { console.error(err); }
         }
 
-        // ==================== 加载城市数据（饼图） ====================
         async function loadCityData() {
             try {
-                const res = await fetch('/api/city_data');
-                const result = await res.json();
+                const res = await fetch('/api/city_data'); const result = await res.json();
                 if (result.success) {
                     cityChart.setOption({
                         tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
                         legend: { orient: 'vertical', right: 10, top: 'center', textStyle: { color: '#fff' } },
+                        series: [{ name: '岗位数量', type: 'pie', radius: ['40%', '70%'], center: ['35%', '50%'], label: { show: false }, data: result.data }]
+                    });
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        async function loadSkillData() {
+            try {
+                const res = await fetch('/api/skill_cloud'); const result = await res.json();
+                if (result.success) {
+                    skillChart.setOption({
+                        tooltip: { show: true, formatter: '{b}: {c} 次' },
                         series: [{
-                            name: '岗位数量',
-                            type: 'pie',
-                            radius: ['40%', '70%'],
-                            center: ['35%', '50%'],
-                            avoidLabelOverlap: false,
-                            itemStyle: {
-                                borderRadius: 5,
-                                borderColor: '#1a1a2e',
-                                borderWidth: 2
-                            },
-                            label: { show: false },
-                            emphasis: {
-                                label: { show: true, fontSize: 16, fontWeight: 'bold', color: '#fff' }
-                            },
-                            labelLine: { show: false },
+                            type: 'wordCloud', shape: 'circle', keepAspect: false, left: 'center', top: 'center', width: '90%', height: '90%',
+                            sizeRange: [14, 60], rotationRange: [-45, 45], rotationStep: 45, gridSize: 8, drawOutOfBound: false,
+                            textStyle: { fontFamily: 'sans-serif', fontWeight: 'bold', color: () => 'rgb(' + [Math.round(Math.random() * 150 + 105), Math.round(Math.random() * 150 + 105), Math.round(Math.random() * 150 + 105)].join(',') + ')' },
                             data: result.data
                         }]
                     });
                 }
-            } catch (err) {
-                console.error('加载城市数据失败:', err);
-            }
+            } catch (err) { console.error(err); }
         }
 
-        // ==================== 加载技能词云（用气泡图模拟） ====================
-        async function loadSkillData() {
+        async function loadEduData() {
             try {
-                const res = await fetch('/api/skill_cloud');
+                const res = await fetch('/api/education_data'); const result = await res.json();
+                if (result.success) {
+                    eduChart.setOption({
+                        tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+                        legend: { bottom: '0%', textStyle: { color: '#fff' } },
+                        series: [{ name: '学历要求', type: 'pie', radius: ['40%', '70%'], center: ['50%', '45%'], label: { show: false }, data: result.data }]
+                    });
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        async function loadWorkYearData() {
+            try {
+                const res = await fetch('/api/work_year_data'); const result = await res.json();
+                if (result.success) {
+                    workYearChart.setOption({
+                        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                        grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+                        xAxis: { type: 'value', axisLabel: { color: '#fff' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } } },
+                        yAxis: { type: 'category', data: result.data.map(i => i.name), axisLabel: { color: '#fff' } },
+                        series: [{ name: '岗位数量', type: 'bar', data: result.data.map(i => i.value), itemStyle: { color: '#764ba2' }, label: { show: true, position: 'right', color: '#fff' } }]
+                    });
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        // ==================== 新增：加载公司规模与薪资（第6个图表） ====================
+        async function loadSizeSalaryData() {
+            try {
+                const res = await fetch('/api/company_size_salary'); 
                 const result = await res.json();
                 if (result.success) {
-                    // 词云用气泡图模拟（ECharts词云需要额外插件）
-                    const data = result.data.map(item => ({
-                        name: item.name,
-                        value: item.value,
-                        symbolSize: Math.sqrt(item.value) * 3
-                    }));
-                    skillChart.setOption({
-                        tooltip: { trigger: 'item', formatter: '{b}: {c}' },
+                    const names = result.data.map(item => item.name);
+                    const salaries = result.data.map(item => item.avg_salary_k);
+                    
+                    sizeSalaryChart.setOption({
+                        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: '{b}<br/>平均薪资: {c}K/月' },
+                        grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+                        xAxis: { type: 'category', data: names, axisLabel: { color: '#fff', rotate: 30 } },
+                        yAxis: { type: 'value', name: 'K/月', axisLabel: { color: '#fff' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } } },
                         series: [{
-                            type: 'graph',
-                            layout: 'force',
-                            data: data,
-                            roam: true,
-                            label: { show: true, position: 'right', formatter: '{b}', color: '#fff' },
-                            force: { repulsion: 150, edgeLength: 80 },
-                            lineStyle: { color: 'source', curveness: 0.3, width: 0 },
-                            itemStyle: {
-                                color: function() {
-                                    return `hsl(${Math.random() * 60 + 180}, 70%, 60%)`;
-                                }
-                            }
+                            name: '平均薪资',
+                            type: 'bar',
+                            data: salaries,
+                            itemStyle: { color: '#00b894' }, // 用绿色的条形图加以区分
+                            label: { show: true, position: 'top', color: '#fff', formatter: '{c}K' }
                         }]
                     });
                 }
+            } catch (err) { console.error('加载公司规模薪资失败:', err); }
+        }
+
+        // ==================== 弹窗与动态图表引擎逻辑 ====================
+        let dynamicChartInstance = null;
+
+        function openModal() {
+            document.getElementById('analysisModal').classList.add('active');
+            // 如果图表还没初始化，就在打开弹窗时初始化
+            if (!dynamicChartInstance) {
+                dynamicChartInstance = echarts.init(document.getElementById('dynamicChart'));
+            }
+            loadDynamicChart(); // 加载下拉菜单当前选中的接口数据
+        }
+
+        function closeModal() {
+            document.getElementById('analysisModal').classList.remove('active');
+        }
+
+        // 核心亮点：根据下拉菜单选择，请求对应接口并渲染
+        async function loadDynamicChart() {
+            const apiPath = document.getElementById('dynamicApiSelect').value;
+            dynamicChartInstance.showLoading({ text: '深度数据计算中...', color: '#667eea', textColor: '#fff', maskColor: 'rgba(22, 33, 62, 0.8)' });
+            
+            try {
+                const res = await fetch(apiPath);
+                const result = await res.json();
+                
+                if (result.success) {
+                    const names = result.data.map(item => item.name);
+                    const salaries = result.data.map(item => item.avg_salary_k);
+                    
+                    // 这里我们用带折线标记的柱状图来展示（显得高端）
+                    dynamicChartInstance.setOption({
+                        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                        grid: { left: '3%', right: '4%', bottom: '10%', containLabel: true },
+                        xAxis: { type: 'category', data: names, axisLabel: { color: '#fff', interval: 0, rotate: 30 } },
+                        yAxis: { type: 'value', name: '平均薪资(K/月)', axisLabel: { color: '#fff' }, splitLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } } },
+                        series: [
+                            {
+                                name: '平均薪资',
+                                type: 'bar',
+                                data: salaries,
+                                itemStyle: { color: '#ff7675' },
+                                barMaxWidth: 40
+                            },
+                            {
+                                name: '薪资趋势',
+                                type: 'line',
+                                data: salaries,
+                                itemStyle: { color: '#ffeaa7' },
+                                smooth: true
+                            }
+                        ]
+                    });
+                }
             } catch (err) {
-                console.error('加载技能数据失败:', err);
+                console.error('动态加载失败:', err);
+            } finally {
+                dynamicChartInstance.hideLoading();
             }
         }
 
-        // ==================== 刷新所有数据 ====================
+        // ==================== 全局生命周期控制 ====================
         function refreshData() {
-            // 添加加载动画反馈
             const btn = event.target;
             const originalText = btn.textContent;
             btn.textContent = '⏳ 刷新中...';
             btn.disabled = true;
             
             Promise.all([
-                loadSalaryData(),
-                loadCityData(),
-                loadSkillData()
+                loadSalaryData(), loadCityData(), loadSkillData(),
+                loadEduData(), loadWorkYearData(), loadSizeSalaryData()
             ]).finally(() => {
                 btn.textContent = originalText;
                 btn.disabled = false;
             });
         }
 
-        // ==================== 导出数据（模拟功能） ====================
-        function exportData() {
-            alert('💡 导出功能演示：\n\n实际项目中可在此接入：\n1. 生成 Excel/PDF 报告\n2. 调用 Flask 接口下载数据\n3. 截图保存当前图表');
-        }
-
-        // ==================== 初始化执行 ====================
         window.addEventListener('DOMContentLoaded', () => {
-            // 加载所有图表
-            loadSalaryData();
-            loadCityData();
-            loadSkillData();
+            // 初始化加载所有6个主屏图表
+            refreshData();
             
-            // 窗口大小改变时自适应图表
+            // 窗口大小改变时自适应所有图表（包括弹窗里的）
             window.addEventListener('resize', () => {
-                salaryChart.resize();
-                cityChart.resize();
-                skillChart.resize();
+                salaryChart.resize(); cityChart.resize(); skillChart.resize();
+                eduChart.resize(); workYearChart.resize(); sizeSalaryChart.resize();
+                if(dynamicChartInstance) dynamicChartInstance.resize();
             });
         });
+        
+        // 点击弹窗遮罩层外部关闭弹窗
+        window.onclick = function(event) {
+            const modal = document.getElementById('analysisModal');
+            if (event.target === modal) closeModal();
+        }
     </script>
 </body>
 </html>
