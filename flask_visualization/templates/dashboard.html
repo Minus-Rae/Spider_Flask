@@ -119,7 +119,7 @@
 <body>
     <div class="header">
         <h1>📊 岗位数据分析可视化平台</h1>
-        <p>Flask + ECharts 爬虫数据深度洞察</p>
+        <p>智联招聘爬虫数据深度洞察</p>
     </div>
 
     <div class="charts-grid">
@@ -182,7 +182,7 @@
         const workYearChart = echarts.init(document.getElementById('workYearChart'));
         const sizeSalaryChart = echarts.init(document.getElementById('sizeSalaryChart')); // 第6个图
 
-        // ==================== 1-5图表加载逻辑 (保持原有逻辑) ====================
+        // ==================== 六个图表加载 ====================
         async function loadSalaryData() {
             try {
                 const res = await fetch('/api/salary_data'); const result = await res.json();
@@ -260,7 +260,6 @@
             } catch (err) { console.error(err); }
         }
 
-        // ==================== 新增：加载公司规模与薪资（第6个图表） ====================
         async function loadSizeSalaryData() {
             try {
                 const res = await fetch('/api/company_size_salary'); 
@@ -302,7 +301,7 @@
             document.getElementById('analysisModal').classList.remove('active');
         }
 
-        // 核心亮点：根据下拉菜单选择，请求对应接口并渲染
+        // 根据下拉菜单选择，请求对应接口并渲染
         async function loadDynamicChart() {
             const apiPath = document.getElementById('dynamicApiSelect').value;
             dynamicChartInstance.showLoading({ text: '深度数据计算中...', color: '#667eea', textColor: '#fff', maskColor: 'rgba(22, 33, 62, 0.8)' });
@@ -315,7 +314,7 @@
                     const names = result.data.map(item => item.name);
                     const salaries = result.data.map(item => item.avg_salary_k);
                     
-                    // 这里我们用带折线标记的柱状图来展示（显得高端）
+                    // 根据接口返回的数据动态设置图表配置，保持风格一致但内容不同
                     dynamicChartInstance.setOption({
                         tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
                         grid: { left: '3%', right: '4%', bottom: '10%', containLabel: true },
