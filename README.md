@@ -1,4 +1,4 @@
-<img width="803" height="578" alt="image" src="https://github.com/user-attachments/assets/a4bf6aa6-8fcd-46d6-9527-cda7d13c2051" /># Job Market Visualization Dashboard
+<img width="803" height="578" alt="image" src="https://github.com/user-attachments/assets/a4bf6aa6-8fcd-46d6-9527-cda7d13c2051" />
 
 基于 Python 的招聘市场数据采集、清洗与可视化分析平台。项目通过 Selenium 爬取智联招聘岗位数据，使用 Pandas 对薪资、城市、学历、经验、岗位类别和技能标签进行清洗与结构化处理，并基于 Flask + ECharts 构建交互式招聘市场数据分析大屏。
 
@@ -40,12 +40,6 @@ flask_visualization/
 └── data/
     ├── job_data.csv        # 原始采集数据
     └── clean_job_data.csv  # 清洗后的分析数据
-
-## 可视化页面
-<img width="803" height="578" alt="image" src="https://github.com/user-attachments/assets/2745c39c-aaa5-4b5b-98d2-2b922292063c" />
-
-<img width="687" height="505" alt="image" src="https://github.com/user-attachments/assets/8ac22a5c-b9ae-40c2-89a9-1dd0304e5214" />
-
 
 ## 快速启动
 
